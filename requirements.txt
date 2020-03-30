@@ -1,3 +1,7 @@
+torch
+numpy
+pyedflib
+pandas
 # local package
 -e .
 
