@@ -4,7 +4,9 @@ import logging
 import os
 import pyedflib
 import pandas as pd
+import re
 import numpy as np
+import sys
 from pathlib import Path
 from dotenv import find_dotenv, load_dotenv
 
@@ -24,14 +26,32 @@ def main(input_filepath, output_filepath):
 
 def create_file_lists(patient_folder):
     # Select the patients you want to check (available are; 1-24)
-    PATIENTS = [1, 2]
+    PATIENTS = range(1, 23)
 
     # Make plots of patient
     PLOT = 0
 
-    seizures_recordings, normal_recordings = list_files(patient_folder, PATIENTS)
+    # seizures_recordings, normal_recordings = list_files(patient_folder, PATIENTS)
+    seizure_timestamps, normal_recording_files = analyse_patients(patient_folder, PATIENTS)
+    # j
 
-    print(seizures_recordings)
+    print(sys.getsizeof(seizure_timestamps))
+
+    print("Seizure length: " + str(seizure_timestamps[0][2]-seizure_timestamps[0][1]))
+    i = 0
+    for seizure in seizure_timestamps:
+        i = i + (seizure[2]-seizure[1])
+    print("Total length seizures: " + str(i))
+
+
+    file_name = seizure_timestamps[0][0]
+
+    signals, signal_headers, header = pyedflib.highlevel.read_edf(patient_folder+file_name)
+    e_seiz = seizure_timestamps[0][2]
+    s_seiz = seizure_timestamps[0][1]
+
+    epilepsy_signal = signals[0][s_seiz*256:e_seiz*256]
+    print("Size 1 signal: " + str(sys.getsizeof(epilepsy_signal)))
 
     # pd_signal = load_edf_to_pd(normal_recordings[0][0])
     # pearson_corr = pearson_correlation(pd_signal)
@@ -41,9 +61,61 @@ def create_file_lists(patient_folder):
     # print(triu_pearson_corr.min(0))
 
 
+def analyse_patients(ROOT, patient_array):
+    seizure_data = []
+    normal_data = []
+
+    for patient in patient_array:
+        normal_data_patient = []
+
+        if patient < 10:
+            patient_folder = "chb0" + str(patient)
+        else:
+            patient_folder = "chb" + str(patient)
+
+        recordings = os.listdir(ROOT + patient_folder)
+
+        summary = open(ROOT + patient_folder + "/" + patient_folder + "-summary.txt", "r")
+        summary = summary.readlines()
+
+        sampling_rate = int(re.findall(r'\d+', summary[0].strip())[0])
+
+        for num, line in enumerate(summary):
+            normal_data_patient_per_file = []
+            if not(line.find("File Name: ")):
+                file_number = summary[num].strip()
+                start_time = summary[num+1].strip()[-8:]
+                time_recording = clock_to_timestamp(summary[num+2].strip()) - clock_to_timestamp(summary[num+1].strip())
+                num_of_seizures = int(re.findall(r'\d+', summary[num + 3].strip())[0])
+
+                normal_data_patient_per_file.append(patient_folder + "/" + file_number.split()[-1])
+                normal_data_patient_per_file.append(start_time)
+                normal_data_patient_per_file.append(time_recording)
+                normal_data_patient_per_file.append(sampling_rate)
+                normal_data_patient.append(normal_data_patient_per_file)
+
+                # Select line with start and end of seizure, strip spaces, regex on numbers and cast to int
+                for seizures in range(num_of_seizures):
+                    seizure_data_patient = []
+                    seizure_data_patient.append(patient_folder + "/" + file_number.split()[-1])
+                    seizure_data_patient.append(int(re.findall(r'\d{2,}', summary[num+4+2*seizures].strip())[0]))
+                    seizure_data_patient.append(int(re.findall(r'\d{2,}', summary[num+5+2*seizures].strip())[0]))
+                    seizure_data.append(seizure_data_patient)
+        normal_data.append(normal_data_patient)
+    return seizure_data, normal_data
+
+
+def clock_to_timestamp(clock_time):
+    seconds = int(clock_time[-2:])
+    minutes = int(clock_time[-5:-3])
+    hours = int(clock_time[-8:-6])
+
+    return seconds + minutes*60 + hours*60*60
+
+
 def edf_to_wav(edf_file):
     signals, signal_headers, header = pyedflib.highlevel.read_edf(edf_file)
-    
+
 
 def load_edf_to_pd(edf_file):
     signals, signal_headers, header = pyedflib.highlevel.read_edf(edf_file)
