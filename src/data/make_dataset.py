@@ -1,20 +1,16 @@
 # -*- coding: utf-8 -*-
-import click
 import logging
 import os
 import pyedflib
 import pandas as pd
 import re
 import numpy as np
-import sys
 from pathlib import Path
 from dotenv import find_dotenv, load_dotenv
+import time
 
 
-@click.command()
-@click.argument('input_filepath', type=click.Path(exists=True))
-@click.argument('output_filepath', type=click.Path())
-def main(input_filepath, output_filepath):
+def main():
     """ Runs data processing scripts to turn raw data from (../raw) into
         cleaned data ready to be analyzed (saved in ../processed).
     """
@@ -33,27 +29,9 @@ def create_file_lists(patient_folder):
 
     # seizures_recordings, normal_recordings = list_files(patient_folder, PATIENTS)
     seizure_timestamps, normal_recording_files = analyse_patients(patient_folder, PATIENTS)
-    # j
 
-    print(sys.getsizeof(seizure_timestamps))
+    extract_seizure_edf(patient_folder, seizure_timestamps, normal_recording_files)
 
-    print("Seizure length: " + str(seizure_timestamps[0][2]-seizure_timestamps[0][1]))
-    i = 0
-    for seizure in seizure_timestamps:
-        i = i + (seizure[2]-seizure[1])
-    print("Total length seizures: " + str(i))
-
-
-    file_name = seizure_timestamps[0][0]
-
-    signals, signal_headers, header = pyedflib.highlevel.read_edf(patient_folder+file_name)
-    e_seiz = seizure_timestamps[0][2]
-    s_seiz = seizure_timestamps[0][1]
-
-    epilepsy_signal = signals[0][s_seiz*256:e_seiz*256]
-    print("Size 1 signal: " + str(sys.getsizeof(epilepsy_signal)))
-
-    # pd_signal = load_edf_to_pd(normal_recordings[0][0])
     # pearson_corr = pearson_correlation(pd_signal)
     #
     # # Reshapes to only contain the lowest values
@@ -61,6 +39,42 @@ def create_file_lists(patient_folder):
     # print(triu_pearson_corr.min(0))
 
 
+def extract_seizure_edf(patient_folder, seizures, normal_files):
+    t_general = time.time()
+    print(seizures)
+    for seizure in seizures:
+        signals, signal_headers, header = pyedflib.highlevel.read_edf(patient_folder + seizure[0])
+        signals = np.array(signals)
+
+        sample_rate = signal_headers[0]["sample_rate"]
+        start = seizure[1]*sample_rate
+        end = seizure[2]*sample_rate
+        seizure_signal = signals[:, start: end]
+        normal_signal = signals[:, start+60*sample_rate: end+60*sample_rate]
+
+        print(seizure)
+        filename = "extract-seizures/" + seizure[0].split("/")[1].split(".")[0] + "-seizure.edf"
+        print(filename)
+
+        pyedflib.highlevel.write_edf(filename, seizure_signal, signal_headers, header)
+        # normal_edf = pyedflib.highlevel.write_edf("edf_normal_file", normal_signal, signal_headers, header)
+
+
+        # mne.set_log_level("WARNING")
+        # raw = mne.io.read_raw_edf(patient_folder + seizure[0], preload=True)
+        # print(raw.info["ch_names"])
+
+        # raw.set_montage("standard_1020", match_case=False, verbose=True)
+
+        # raw.plot()
+        # plt.show()
+
+
+        # montage = mne.channels.make_standard_montage("standard_1020")
+        print("Check")
+
+    elapsed = time.time() - t_general
+    print(elapsed)
 def analyse_patients(ROOT, patient_array):
     seizure_data = []
     normal_data = []
@@ -72,8 +86,6 @@ def analyse_patients(ROOT, patient_array):
             patient_folder = "chb0" + str(patient)
         else:
             patient_folder = "chb" + str(patient)
-
-        recordings = os.listdir(ROOT + patient_folder)
 
         summary = open(ROOT + patient_folder + "/" + patient_folder + "-summary.txt", "r")
         summary = summary.readlines()
