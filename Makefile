@@ -1,4 +1,4 @@
-.PHONY: clean data lint requirements
+.PHONY: clean data lint requirements visualize
 
 #################################################################################
 # GLOBALS                                                                       #
@@ -37,6 +37,9 @@ clean:
 ## Lint using flake8
 lint:
 	flake8 src
+
+visualize:
+	$(PYTHON_INTERPRETER) src/visualization/visualize.py
 
 ## Set up python interpreter environment
 create_environment:
