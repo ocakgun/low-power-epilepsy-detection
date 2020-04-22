@@ -4,7 +4,13 @@ low-power-epilepsy-detection
 Project which uses epilepsy data to create a ANN which detects seizures and ports this to a low level integration 
 
 ## Current status
-Updated: 16-03-2020
+
+Update: 22-03-2020
+- Make_dataset now correctly exports processed normal EEG data and seizure data. Currently normal data is just a +X seconds from the seizure. I should think about randomly picking those, also a matter of interest is the amount of normal data point. Currently seizure/normal are equal, but probably more normal should be put into the model. It should be researched what the effects of playing with this is
+- Currently I am trying to get the training model up and running. For the first attempt I want to feed all 23 channels in the network. However the problem currently holding me up is that some (actually around 50% of the EEG data files) contain more then 23 channels. This can be either empty channels, duplicate channels or extra data such as simutaniously recordings of ECGs. It is pretty time consuming to filter those channels out, but it has to be done, work on that is currently in visualize.py but once finished will be moved to make_data.py or to generalized helper scripts
+- 24 patients are available in this initial datasets, currently on 23 have been processed, this is because patient 24 contains some irregalarities in its data. Currently 182 seizures are available and patient 24 could at an additional 16. Should probably write a script to print all states of the project though     
+
+Update: 16-03-2020
  - Currently working to make this completely work on Google Colab, for this the main problem is that the complete dataset is to big, solution is to download the dataset in multiple stages and process raw data to (much smaller) processed data which can be used as input for the ANN 
  - Some profiling code has to be ported from an earlier version of this project, used to find correlation ed, will be usefull in a later stage to compare performance 
  - Also some work has been done in audioprocessing ANNs with detecting if an audio sample was music or not (was an easy extension from a training exercise and is quite comparable to epilepsy detection in some sense). After this runs well on Colab I will port that code to the model folder
