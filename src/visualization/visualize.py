@@ -3,10 +3,7 @@ from pathlib import Path
 from dotenv import find_dotenv, load_dotenv
 import matplotlib as plt
 import mne
-import os
-import numpy as np
-import pandas as pd
-from collections import Counter
+import pickle
 
 def main():
     logger = logging.getLogger(__name__)
@@ -16,29 +13,31 @@ def main():
     # # Reshapes to only contain the lowest values
     # triu_pearson_corr = pearson_corr.mask(np.triu(np.ones(pearson_corr.shape, dtype=np.bool_)))
     # print(triu_pearson_corr.min(0))
-    count_channels()
 
+
+    # count_channels()
+    small_test()
+
+
+def small_test():
+    with open("/home/jmsvanrijn/Documents/Afstuderen/pkl/seiz_0_1.pkl", "rb") as f:
+        date = pickle.load(f)
+        print(len(date.data[0][0]))
+        print(len(date.data[0]))
+        print(len(date.data))
+
+    with open("/home/jmsvanrijn/Documents/Afstuderen/pkl/seiz_0_2.pkl", "rb") as g:
+        date = pickle.load(g)
+        print(len(date.data[0]))
+        print(len(date.data))
 
 def count_channels():
     eeg_seizure_data = Path.cwd() / "data/processed/seizures"
     files = sorted(Path(eeg_seizure_data).glob("*.edf"))
 
     headers = [(mne.io.read_raw_edf(f, preload=True).info["ch_names"]) for f in files]
-    headers_flatten = np.concatenate(np.array(headers)).ravel()
 
-    # We flag all channels which are bigger then expected
-    bigger_then_23_channels = [[i, len(f)] for i, f in enumerate(headers) if len(f) > 23]
-    print(bigger_then_23_channels)
-    print("Amount of files: " + str(len(files)))
-    print(str(len(files)) + " files contain a total of " + str(len(headers_flatten)) + " channels. Which is: " + str(len(headers_flatten)/len(files)))
-    # print(Counter(headers_flatten))
-
-    for i in bigger_then_23_channels:
-        raw = mne.io.read_raw_edf(files[i[0]], preload=True).info["ch_names"]
-        print(files[i[0]])
-        print(len(raw))
-        print(raw)
-        break
+    [print(len(header)) for header in headers if len(header) != 23]
 
 
 def plot_eeg():
@@ -53,8 +52,10 @@ def plot_eeg():
 
     montage = mne.channels.make_standard_montage("standard_1020")
 
+
 def pearson_correlation(pd_eeg):
     return pd_eeg.T.corr(method="pearson")
+
 
 if __name__ == '__main__':
     log_fmt = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'

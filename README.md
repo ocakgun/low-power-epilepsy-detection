@@ -5,6 +5,9 @@ Project which uses epilepsy data to create a ANN which detects seizures and port
 
 ## Current status
 
+Update: 23-03-2020
+- Interesting to note; the channels of patient 12 are relative to earth (or so it seems). All other EEGs use a relative system (ie F7-C7), channels are however available so I can calculate the same signals as the rest of the patients (use channel F7 and C7 to make F7-C7), for now I choose let it be as the focus now is to get a ANN to work, probably have to address this another time.
+
 Update: 22-03-2020
 - Make_dataset now correctly exports processed normal EEG data and seizure data. Currently normal data is just a +X seconds from the seizure. I should think about randomly picking those, also a matter of interest is the amount of normal data point. Currently seizure/normal are equal, but probably more normal should be put into the model. It should be researched what the effects of playing with this is
 - Currently I am trying to get the training model up and running. For the first attempt I want to feed all 23 channels in the network. However the problem currently holding me up is that some (actually around 50% of the EEG data files) contain more then 23 channels. This can be either empty channels, duplicate channels or extra data such as simutaniously recordings of ECGs. It is pretty time consuming to filter those channels out, but it has to be done, work on that is currently in visualize.py but once finished will be moved to make_data.py or to generalized helper scripts
