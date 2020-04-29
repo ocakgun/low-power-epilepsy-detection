@@ -1,3 +1,5 @@
+mne
+matplotlib
 wget
 torch
 numpy
