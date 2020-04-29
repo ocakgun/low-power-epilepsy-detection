@@ -12,6 +12,7 @@ import wget
 import shutil
 import random
 import string
+import mne
 
 
 def main():
@@ -21,16 +22,18 @@ def main():
     logger = logging.getLogger(__name__)
     logger.info('making final data set from raw data')
 
-    patient_folder = os.getenv("RAW_DATA_FOLDER")
-    create_file_lists(patient_folder)
+    # cut_seizures()
+    cut_channels()
 
 
-def create_file_lists(patient_folder):
+def cut_seizures():
     # Select the patients you want to check (available are; 1-24)
     PATIENTS = range(1, 24)
 
     # Make plots of patient
     PLOT = 0
+
+    patient_folder = os.getenv("RAW_DATA_FOLDER")
 
     #Base url of data
     physioUrl = "https://physionet.org/files/chbmit/1.0.0/"
@@ -46,6 +49,7 @@ def create_file_lists(patient_folder):
     else:
         seizure_timestamps, normal_recording_files = analyse_patients(patient_folder, PATIENTS)
         extract_seizure_edf(patient_folder, seizure_timestamps, normal_recording_files)
+
 
 def yes_or_no_helper():
     yes = {"yes", "y", "ye", ""}
@@ -73,12 +77,15 @@ def extract_seizure_edf(patient_folder, seizures, normal_files):
     t_general = time.time()
     t_delay = 60
 
-    if os.path.isdir("data/processed/seizures"):
-        shutil.rmtree("data/processed/seizures", ignore_errors=True)
-        shutil.rmtree("data/processed/normal", ignore_errors=True)
+    seizure_path = "data/interim/seizures/"
+    normal_path = "data/interim/normal/"
 
-    os.mkdir("data/processed/seizures")
-    os.mkdir("data/processed/normal")
+    if os.path.isdir(seizure_path):
+        shutil.rmtree(seizure_path, ignore_errors=True)
+        shutil.rmtree(normal_path, ignore_errors=True)
+
+    os.mkdir(seizure_path)
+    os.mkdir(normal_path)
 
     for seizure in seizures:
         signals, signal_headers, header = pyedflib.highlevel.read_edf(patient_folder + seizure[0])
@@ -91,8 +98,8 @@ def extract_seizure_edf(patient_folder, seizures, normal_files):
         normal_signal = signals[:, start+t_delay*sample_rate: end+t_delay*sample_rate]
         random_part = random.choice(string.ascii_letters) + random.choice(string.ascii_letters)
 
-        seizure_filename = "data/processed/seizures/" + seizure[0].split("/")[1].split(".")[0] + "_" + random_part + "-seizure.edf"
-        normal_filename = "data/processed/normal/" + seizure[0].split("/")[1].split(".")[0] + "_" + random_part + ".edf"
+        seizure_filename = seizure_path + seizure[0].split("/")[1].split(".")[0] + "_" + random_part + "-seizure.edf"
+        normal_filename = normal_path + seizure[0].split("/")[1].split(".")[0] + "_" + random_part + ".edf"
 
         # Some headers are broken, this fixes them
         for signal_header in signal_headers:
@@ -166,6 +173,66 @@ def load_edf_to_pd(edf_file):
 
     pd_eeg = pd.DataFrame(data=signals, index=pd_signal_headers)
     return pd_eeg
+
+
+def cut_channels():
+    eeg_seizure_data = Path.cwd() / "data/interim/seizures"
+    seizure_path = "data/processed/seizures/"
+    normal_path = "data/processed/normal/"
+
+    files = sorted(Path(eeg_seizure_data).glob("*.edf"))
+
+    if os.path.isdir(seizure_path):
+        shutil.rmtree(seizure_path, ignore_errors=True)
+        shutil.rmtree(normal_path, ignore_errors=True)
+
+    os.mkdir(seizure_path)
+    os.mkdir(normal_path)
+
+    headers = [(mne.io.read_raw_edf(f, preload=True).info["ch_names"]) for f in files]
+
+    # We flag all channels which are bigger then expected
+    for i, f in enumerate(headers):
+        if len(f) > 23:
+            drop_channels(files[i])
+        else:
+            load_right_channels(str(files[i]))
+
+
+
+def drop_channels(file):
+    amount_of_wanted_channels = 23
+    unwanted_channels = ["--0", "--1", "--2", "--3", "--4", "--5", "-0", "-1", "-2", "-3", "-4", "-5", "ECG", "-", ".", "VNS", "LOC-ROC", "EKG1-CHIN", "C6-CS2", "C6"]
+    wanted_channels = ["FP1-F7", "F7-T7", "T7-P7", "P7-O1", "FP1-F3", "F3-C3", "C3-P3", "P3-O1", "FP2-F4", "F4-C4", "C4-P4", "P4-O2", "FP2-F8", "F8-T8", "T8-P8", "P8-O2", "FZ-CZ", "CZ-PZ", "P7-T7", "T7-FT9", "FT9-FT10", "FT10-T8", "T8-P8"]
+
+    signals, signal_headers, header = pyedflib.highlevel.read_edf(str(file))
+    signal_wanted_count = [(f["label"]) for f in signal_headers if f["label"] in wanted_channels]
+
+    if len(signal_wanted_count) != amount_of_wanted_channels:
+        signal_unwanted_count = [(f["label"]) for f in signal_headers if f["label"] in unwanted_channels]
+        complete_list = [(f["label"]) for f in signal_headers]
+        load_right_channels(edf_source=str(file), to_keep=list(set(complete_list) - set(signal_unwanted_count)))
+    else:
+        load_right_channels(edf_source=str(file), to_keep=signal_wanted_count)
+
+
+def load_right_channels(edf_source, to_keep=None):
+    load_seizure = edf_source
+    save_seizure = edf_source.replace("interim", "processed")
+
+    load_normal = edf_source.replace("-seizure", "").replace("seizures", "normal")
+    save_normal = load_normal.replace("interim", "processed")
+
+    # Seizures
+    signals, signal_headers, header = pyedflib.highlevel.read_edf(load_seizure, ch_names=to_keep)
+    if len(signal_headers) == 23:
+        pyedflib.highlevel.write_edf(save_seizure, signals, signal_headers, header)
+
+    # Normal
+    signals, signal_headers, header = pyedflib.highlevel.read_edf(load_normal, ch_names=to_keep)
+    if len(signal_headers) == 23:
+        pyedflib.highlevel.write_edf(save_normal, signals, signal_headers, header)
+
 
 
 if __name__ == '__main__':
