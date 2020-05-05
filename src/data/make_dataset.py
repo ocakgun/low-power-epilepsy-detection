@@ -35,7 +35,7 @@ def cut_seizures():
 
     patient_folder = os.getenv("RAW_DATA_FOLDER")
 
-    #Base url of data
+    # Base url of data
     physioUrl = "https://physionet.org/files/chbmit/1.0.0/"
 
     # Download files and process the to raw to processed data, beware cost a lot of time
@@ -197,7 +197,6 @@ def cut_channels():
             drop_channels(files[i])
         else:
             load_right_channels(str(files[i]))
-
 
 
 def drop_channels(file):
