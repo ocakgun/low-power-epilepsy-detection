@@ -233,7 +233,6 @@ def load_right_channels(edf_source, to_keep=None):
         pyedflib.highlevel.write_edf(save_normal, signals, signal_headers, header)
 
 
-
 if __name__ == '__main__':
     log_fmt = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     logging.basicConfig(level=logging.INFO, format=log_fmt)
