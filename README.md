@@ -5,6 +5,13 @@ Project which uses epilepsy data to create a ANN which detects seizures and port
 
 ## Current status
 
+Update: 12-04-2020
+- Saw a talk by Jerald Yoo today. He thinks DNN (Deep Neural Networks) is not the right ML-approach. Uses mostly SVM-classification. Interesting point he made is that he said it is extremely hard to detect 
+- I sorted models, it's better know I feel
+- Should implement TP (L: T, O: T), FP (L: F, O: F), TN (L: F, O: F) and FN (L: T, O: F). And sensibility and specifity measures. Should be relatively easy to implement.
+- Make it easier to play with; Seizure/Non-seizure, Validation-set, Patients used, fix problems with input lenght
+- Calculate SVM and Coveriance, and time-shifted covariance   
+
 Update: 23-03-2020
 - Interesting to note; the channels of patient 12 are relative to earth (or so it seems). All other EEGs use a relative system (ie F7-C7), channels are however available so I can calculate the same signals as the rest of the patients (use channel F7 and C7 to make F7-C7), for now I choose let it be as the focus now is to get a ANN to work, probably have to address this another time.
 
