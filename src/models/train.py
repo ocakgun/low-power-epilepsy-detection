@@ -1,15 +1,13 @@
 import torch
 import torch.nn.functional as F
 
-def train(data_loader, epochs, optimizer, model, print_every=1, device="cpu"):
-    traindata_len = 356
-    bs = 48
+def train(train_loader, valid_loader, epochs, optimizer, model, train_data_len, bs, print_every=1, device="cpu"):
     model.train()
+    total_correctness, total_sensitivity, total_specificity, _total_loss = [], [], [], []
     for epoch in range(epochs):
         total_loss = 0
-        epoch_loss = []
-        epoch_correct = []
-        for i, batch in enumerate(data_loader):
+        epoch_correctness, epoch_sensitivity, epoch_specificity, epoch_loss = [], [], [], []
+        for i, batch in enumerate(train_loader):
             optimizer.zero_grad()
             inputs, labels = batch
             inputs = inputs.to(device)
@@ -19,17 +17,40 @@ def train(data_loader, epochs, optimizer, model, print_every=1, device="cpu"):
             loss.backward()
             optimizer.step()
             total_loss += loss.data.item()
-            # print(torch.eq(torch.round(outputs).view(-1), labels))
-            correct = torch.sum(torch.eq(torch.round(outputs).view(-1), labels) == True)
-
+            target_rounded = torch.round(outputs)
+            correctness, sensitivity, specificity = profile_results(target_rounded, labels)
+            epoch_correctness.append(correctness), epoch_sensitivity.append(sensitivity), epoch_specificity.append(specificity), epoch_loss.append(total_loss)
 
             if (i + 1) % print_every == 0:
-                print("epoch: {:d}, iter {:d}/{:d}, loss {:.4f}, Correct: {:.2f}%".format(
-                epoch + 1, i + 1, traindata_len // bs + 1, total_loss / print_every, correct.item()/len(inputs)*100))
+                print("epoch: {:d}, iter {:d}/{:d}, loss {:.4f}, Correct: {:.2f}%, Sensitivty {:.2f}%, Specificity {:.2f}%".format(
+                epoch + 1, i + 1, train_data_len // bs, total_loss / print_every, correctness*100, sensitivity*100, specificity*100))
                 total_loss = 0
 
-            epoch_loss.append(total_loss)
-            epoch_correct.append(correct.item())
+        total_correctness.append(epoch_correctness), total_sensitivity.append(epoch_sensitivity), total_specificity.append(epoch_specificity), _total_loss.append(epoch_loss)
 
-        print(sum(epoch_correct))
-        print("Correct: {:.2f}%".format(sum(epoch_correct)/traindata_len*100))
+    model.eval()
+    return total_correctness, total_sensitivity, total_specificity, _total_loss
+
+
+def profile_results(outputs, targets):
+    tp, tn, fp, fn = 0, 0, 0, 0
+    for i in range(len(outputs)):
+        output = outputs[i][0]
+        target = targets[i]
+
+        if output and target:
+            tp = tp+1
+        elif not output and not target:
+            tn = tn+1
+        elif not output and target:
+            fn = fn+1
+        elif output and not target:
+            fp = fp + 1
+        else:
+            print("Could not identify")
+
+    total_correctnes = (tp + tn)/(fp + fn + tp + tn)
+    sensitivity = tp/(tp+fn)
+    specificity = tn/(tn+fp)
+
+    return total_correctnes, sensitivity, specificity

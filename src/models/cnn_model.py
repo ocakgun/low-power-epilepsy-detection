@@ -23,7 +23,6 @@ class convmodel(nn.Module):
 
     def forward(self, x):
         bs = x.size(0)
-        # print(x.size())
         x = self.conv(x)
         # print(x.size())
         x = x.view(bs, -1)
