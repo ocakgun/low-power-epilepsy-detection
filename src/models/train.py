@@ -1,35 +1,34 @@
 import torch
-import torch.nn.functional as F
+import pandas as pd
 
-def train(train_loader, valid_loader, epochs, optimizer, model, train_data_len, bs, print_every=1, device="cpu"):
-    model.train()
-    total_correctness, total_sensitivity, total_specificity, _total_loss = [], [], [], []
+
+def train(net, train_loader, epochs, criterion, optimizer, print_every=1):
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    net.train()
+    columns = ["epoch", "iteration", "size", "loss", "fn", "fp", "tn", "tp"]
+    results = []
     for epoch in range(epochs):
-        total_loss = 0
-        epoch_correctness, epoch_sensitivity, epoch_specificity, epoch_loss = [], [], [], []
         for i, batch in enumerate(train_loader):
+            running_loss = 0
+            seizures, labels, filenames = batch[0].to(device), batch[1].to(device), batch[2]
             optimizer.zero_grad()
-            inputs, labels = batch
-            inputs = inputs.to(device)
-            labels = labels.to(device)
-            outputs = model(inputs)
-            loss = F.binary_cross_entropy(outputs.view(-1), labels.double())
+            outputs = net(seizures)
+            loss = criterion(outputs.view(-1), labels.double())
             loss.backward()
             optimizer.step()
-            total_loss += loss.data.item()
-            target_rounded = torch.round(outputs)
-            correctness, sensitivity, specificity = profile_results(target_rounded, labels)
-            epoch_correctness.append(correctness), epoch_sensitivity.append(sensitivity), epoch_specificity.append(specificity), epoch_loss.append(total_loss)
+            running_loss += loss.item()
+            fn, fp, tn, tp = profile_results(torch.round(outputs), labels)
+            results.append([epoch + 1, i + 1, len(seizures), running_loss, fn, fp, tn, tp])
+            print_last_results(epoch + 1, i + 1, running_loss, fn, fp, tn, tp) if (i + 1) % print_every == 0 else False
+    net.eval()
+    return pd.DataFrame(results, columns=columns)
 
-            if (i + 1) % print_every == 0:
-                print("epoch: {:d}, iter {:d}/{:d}, loss {:.4f}, Correct: {:.2f}%, Sensitivty {:.2f}%, Specificity {:.2f}%".format(
-                epoch + 1, i + 1, train_data_len // bs, total_loss / print_every, correctness*100, sensitivity*100, specificity*100))
-                total_loss = 0
 
-        total_correctness.append(epoch_correctness), total_sensitivity.append(epoch_sensitivity), total_specificity.append(epoch_specificity), _total_loss.append(epoch_loss)
+def print_last_results(epoch, iter, loss, fn, fp, tn, tp):
+    correctness, sensitivity, specificity = profile_to_measure(tn, tp, fp, fn)
 
-    model.eval()
-    return total_correctness, total_sensitivity, total_specificity, _total_loss
+    print("epoch: {:d}, iter {:d}, loss {:.4f}, Correct: {:.2f}%, Sensitivty {:.2f}%, Specificity {:.2f}%".format(
+    epoch, iter, loss, correctness*100, sensitivity*100, specificity*100))
 
 
 def profile_results(outputs, targets):
@@ -46,11 +45,13 @@ def profile_results(outputs, targets):
             fn = fn+1
         elif output and not target:
             fp = fp + 1
-        else:
-            print("Could not identify")
 
-    total_correctnes = (tp + tn)/(fp + fn + tp + tn)
+    return fn, fp, tn, tp
+
+
+def profile_to_measure(tn, tp, fp, fn):
+    correctness = (tn + tp) / (tp + tn + fp + fn)
     sensitivity = tp/(tp+fn)
     specificity = tn/(tn+fp)
 
-    return total_correctnes, sensitivity, specificity
+    return correctness, sensitivity, specificity

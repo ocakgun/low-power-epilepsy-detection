@@ -16,7 +16,7 @@ class EpilepsyData(Dataset):
 
         loc = random.randint(0, len(signals[0]) - self.window_size)
         signals_cut = signals[:, loc: loc + self.window_size]
-        return signals_cut, int(label)
+        return signals_cut, int(label), filename
 
     def __len__(self):
         return self.length

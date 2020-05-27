@@ -32,10 +32,16 @@ def detect_energy_spikes():
     signals, signal_headers, header = highlevel.read_edf(str(seizure_file_1))
 
     recorded_seizures = np.array([0, 2589, 2660, 6885, 6947, 8505, 8532, 9580, 9664, len(signals[0])/hz])*hz
-    y_axis = np.resize([1500, 0], len(recorded_seizures))
+    seiz_23_1 = [29, 47]
+    seiz_23_2 = [[30, 50], [53, 59]]
+    seiz_23_3 = [2, 90]
+
+
+    y_axis = np.resize([750, 0], len(recorded_seizures))
 
     z = np.array(signals[2])
     g = z[1:]**2 - z[1:]*z[:-1]
+    g_2 = np.convolve(g, [1, 1, 1, 1, 1, 1, 1, 1])
 
     plt.subplot(211)
     plt.plot(np.transpose(z))
@@ -44,6 +50,7 @@ def detect_energy_spikes():
     y_axis = np.resize([np.max(g), 0], len(recorded_seizures))
     plt.subplot(212)
     plt.plot(np.transpose(g))
+    plt.plot(np.transpose(g_2))
     plt.plot(recorded_seizures, y_axis, drawstyle="steps")
     plt.show()
 
